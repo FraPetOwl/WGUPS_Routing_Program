@@ -1,26 +1,26 @@
+# main.py student ID:004928444
 # Author: Peter Fraser
-# Student ID:004928444
 # Title: WGUPS Routing Program
 # Submission 1:
 
 import csv
 import datetime
-from package import PackageInfo
-from hash import HashMap
-from truck import Truck
+import package
+import hash
+import truck
 
 # create instance of Hashmap
-h = HashMap()
+h = hash.HashMap()
 
 
 # Loads the package data from the CSV into the hash map
-def packageDataToHashMap():
+def package_data_to_hashmap():
     print("Loading package data")
     with open("WGUPS Package File.csv") as packageCSV:
-        readPackageCSV = csv.reader(packageCSV, delimiter=',')
-        next(readPackageCSV)  # skips the header rows
+        read_package_csv = csv.reader(packageCSV, delimiter=',')
+        next(read_package_csv)  # skips the header rows
 
-        for row in readPackageCSV:
+        for row in read_package_csv:
             package_id = int(row[0])
             address = row[1]
             city = row[2]
@@ -31,15 +31,15 @@ def packageDataToHashMap():
             special_notes = row[7]
 
             # Creates a package info object
-            package_info = PackageInfo(package_id, address, city, state, zip_code, delivery_deadline, weight,
-                                       special_notes)
+            package_info = package.PackageInfo(package_id, address, city, state, zip_code, delivery_deadline, weight,
+                                               special_notes)
             # Inserts into the hash map
             h.insert(package_id, package_info)
     print("Package data loaded\n")
 
 
-# Call the function to load data
-packageDataToHashMap()
+# Load package object data to hash map
+package_data_to_hashmap()
 
 
 def load_address_data():
@@ -94,8 +94,8 @@ def distance_between(address1, address2):
     return distance_data[index1][index2]
 
 
-# Returns string of the closest package address found from the current address (for nearest neighbor)
-
+# Returns address of the closest package found - comparing to current address truck is at
+# nearest neighbor algo
 
 def min_distance_from(from_address, truck_packages):
     # Initialize variables
@@ -117,57 +117,74 @@ def min_distance_from(from_address, truck_packages):
     return closest_address
 
 
-# Manually load trucks 1 and 2 based on requirements
-truck1 = Truck(speed=18,
-               current_location=hub,
-               time=datetime.timedelta(hours=8),
-               time_left_hub=datetime.timedelta(hours=8),
-               mileage=0.0,
-               packages=[1, 2, 13, 14, 15, 16, 19, 20, 23, 24, 29, 30, 31, 34, 37, 40])
+# Manually load trucks 1 and 2 based on WGUPS project requirements
 
-truck2 = Truck(speed=18,
-               current_location=hub,
-               time=datetime.timedelta(hours=9, minutes=5),
-               time_left_hub=datetime.timedelta(hours=9, minutes=5),
-               mileage=0.0,
-               packages=[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 25, 28, 32, 36, 38])
+truck1 = truck.Truck(truck_id=1,
+                     speed=18,
+                     current_location=hub,
+                     time=datetime.timedelta(hours=8),
+                     time_left_hub=datetime.timedelta(hours=8),
+                     mileage=0.0,
+                     packages=[1, 2, 13, 14, 15, 16, 19, 20, 23, 24, 29, 30, 31, 34, 37, 40])
+
+truck2 = truck.Truck(truck_id=2,
+                     speed=18,
+                     current_location=hub,
+                     time=datetime.timedelta(hours=9, minutes=5),
+                     time_left_hub=datetime.timedelta(hours=9, minutes=5),
+                     mileage=0.0,
+                     packages=[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 25, 28, 32, 36, 38])
 
 
-def truck_deliver_packages(truck):
+# Function to deliver packages, passing in specific truck with it's assigned list of packages
+
+def truck_deliver_packages(delivery_truck):
+    print(f"Truck #{delivery_truck.truck_id} starting delivery")
     # While there are packages in the truck, deliver until there are no more packages left in truck
-    while truck.packages:
-        # Find the package with the closest package in the list of truck packages
-        closest_address = min_distance_from(truck.current_location, truck.packages)
+    while delivery_truck.packages:
 
-        # Get the package info for this address
-        for package_id in truck.packages:
+        # Find the package with the closest address in the list of truck packages
+        closest_address = min_distance_from(delivery_truck.current_location, delivery_truck.packages)
+
+        # Get the package info for this address stored in the hash map
+        for package_id in delivery_truck.packages:
             package_info = h.get(package_id)
+            package_info.delivery_status = "On Route"
+
+            if delivery_truck.time >= datetime.timedelta(hours=10, minutes=20):
+                if package_id == 9:
+                    package_info.address, zip_code = "410 S State St", "84111"
+                    h.insert(package_id, package_info)
+
             if package_info.address == closest_address:
-                # Calculate the distance between current location and the closest address
-                delivery_distance = distance_between(truck.current_location, closest_address)
+                # Calculate the distance between current location and the closest address, then update mileage
+                delivery_distance = distance_between(delivery_truck.current_location, closest_address)
+                delivery_truck.mileage += delivery_distance
 
-                # Update mileage
-                truck.mileage += delivery_distance
+                # Calculate the time it takes to deliver the package and add it to total truck time
+                time_to_deliver = datetime.timedelta(hours=delivery_distance / delivery_truck.speed)
+                delivery_truck.time += time_to_deliver
 
-                # Calculate the time it takes to deliver package
-                time_to_deliver = datetime.timedelta(hours=delivery_distance / truck.speed)
-                truck.time += time_to_deliver
+                # Assign package to time it left the hub, it's delivery time, and update delivery status
+                package_info.time_left_hub = delivery_truck.time_left_hub
+                package_info.delivery_time = delivery_truck.time
+                package_info.delivery_status = f"Delivered at {package_info.delivery_time}"
 
-                # Update package status to "Delivered" in the HashMap FIX after I give packages their delivery status
-                package_info.delivery_deadline = f"Delivered at {truck.time}"
                 h.insert(package_id, package_info)  # Update in hash table
 
-                # Print delivery details (optional)
-                print(f"Delivered package {package_id} to {closest_address} at {truck.time}\n")
+                # Print delivery details
+                print(f"Delivered package {package_id} to {closest_address} at {package_info.delivery_time}\n")
 
                 # Remove the delivered package from the truck's package list
-                truck.packages.remove(package_id)
+                delivery_truck.packages.remove(package_id)
 
                 # Update truck's current location
-                truck.current_location = closest_address
+                delivery_truck.current_location = closest_address
 
-                # Break the loop after delivering one package (to find the next closest)
+                # Break the loop after delivering one package (then find the next package)
                 break
+    else:
+        print(f"Truck {delivery_truck.truck_id} out of packages to deliver.\n")
 
 
 # Call trucks 1 and 2 to execute their delivery
@@ -175,46 +192,153 @@ def truck_deliver_packages(truck):
 truck_deliver_packages(truck1)
 truck_deliver_packages(truck2)
 
-# Check mileage after trucks deliver
 
-print(f"Truck 1 mileage:{truck1.mileage}\nTruck 2 mileage: {truck2.mileage}")
-print(f"Total truck mileage: {truck1.mileage + truck2.mileage}\n")
+# Returns trucks from its current location back to the hub and updates mileage/time/location.
 
+def return_trucks_to_hub(delivery_truck):
+    print(f"Returning truck {delivery_truck.truck_id} to the hub\n")
 
-# Manually return trucks from its current location back to the hub.
-# And update mileage/time/location.
-def return_trucks_to_hub(truck):
-    print("Returning truck to the hub")
+    return_distance = distance_between(delivery_truck.current_location, hub)
+    delivery_truck.current_location = hub
+    delivery_truck.mileage += return_distance
 
-    return_distance = distance_between(truck.current_location, hub)
-    truck.mileage += return_distance
-    time_to_return = datetime.timedelta(hours=return_distance / truck.speed)
-    truck.time += time_to_return
-    truck.current_location = hub
+    time_to_return = datetime.timedelta(hours=return_distance / delivery_truck.speed)
+    delivery_truck.time += time_to_return
 
 
 return_trucks_to_hub(truck1)
 return_trucks_to_hub(truck2)
 
-# Manually load remainder of packages.
+# Check mileage after trucks deliver their first run
 
-truck1 = Truck(speed=18,
-               current_location=truck1.current_location,
-               time=truck1.time,
-               time_left_hub=truck1.time,
-               mileage=truck1.mileage,
-               packages=[17, 21, 22, 26, 27, 33, 35, 39])
+print(f"Truck 1 mileage:{truck1.mileage}\nTruck 2 mileage: {truck2.mileage}")
+print(f"Total truck mileage after first run: {truck1.mileage + truck2.mileage}\n")
+
+# Manually load remainder of packages into Truck 1 for a second delivery run
+
+truck1.packages = [17, 21, 22, 26, 27, 33, 35, 39]
+truck1.time_left_hub = truck1.time
 
 truck_deliver_packages(truck1)
 return_trucks_to_hub(truck1)
-# call return to hub for truck 1 to update and get final tally
 
-print(f"Truck 1 mileage:{truck1.mileage}\nTruck 2 mileage: {truck2.mileage}")
-print(f"Total truck mileage: {truck1.mileage + truck2.mileage}\n")
+print("     Welcome to WGUPS Routing Program!\n")
+
+def display_menu():
+    print("*"*45)
+    print((" " * 18) + "Menu")
+    print("*********************************************\n"
+          "1. Print All Package Status and Total Mileage\n"
+          "2. Get a Single Package Status with a Time\n"
+          "3. Get All Package Status with a Time\n"
+          "4. Exit the Program\n"
+          "*********************************************\n")
+
+
+# Prints all packages and their final status with total mileage of trucks below
+
+def print_all_package_status_and_mileage():
+    for package_id in range(1, 41):
+        print(h.get(package_id))
+    print()
+
+    print(f"Truck 1 mileage:{truck1.mileage:.2f}\nTruck 2 mileage: {truck2.mileage:.2f}")
+    print(f"Total truck mileage: {truck1.mileage + truck2.mileage:.2f}\n")
+
+
+# Prints a single package status for a package ID and a time given by the user
+
+def get_single_package_status():
+    try:
+        package_id = int(input("\nEnter Package ID (1-40): "))
+
+        time_input_str = input("Enter a time in HH:MM format: ")
+        user_time = datetime.datetime.strptime(time_input_str, "%H:%M").time()
+        user_timedelta = datetime.timedelta(hours=user_time.hour, minutes=user_time.minute)
+
+        package_info = h.get(package_id)
+        if package_info:
+            # Compare the delivery time with the user input time
+            if user_timedelta < package_info.time_left_hub:
+                print(f"Package {package_id} status at {time_input_str}: At Hub")
+                return
+            elif package_info.time_left_hub <= user_timedelta < package_info.delivery_time:
+                print(f"Package {package_id} status at {time_input_str}: On Route")
+                return
+            elif user_timedelta >= package_info.delivery_time:
+                print(
+                    f"Package {package_id} status at {time_input_str}: Delivered at {package_info.delivery_time}")
+                return
+            # If no status is determined, assume "At Hub"
+            print(f"Package {package_id} status at {time_input_str}: At Hub")
+        else:
+            print("Invalid Package ID.")
+    except Exception as e:
+        print("Error:", e)
+
+
+# Prints all package status for a specific time given by the user
+
+def get_all_package_status():
+    try:
+        # Prompt user for a specific time
+        time_input_str = input("Enter a time in HH:MM format: ")
+        user_time = datetime.datetime.strptime(time_input_str, "%H:%M").time()
+        user_timedelta = datetime.timedelta(hours=user_time.hour, minutes=user_time.minute)
+
+        # Print header for output
+        print("\nPackage Statuses at", time_input_str)
+        print("-" * 30)
+        print(f"{'Package ID':<12}{'Status':<15}")
+        print("-" * 30)
+
+        # Iterate through all package IDs in the hash table
+        for package_id in range(1, 41):  # Assuming IDs range from 1 to 40
+            package_info = h.get(package_id)
+            if package_info:
+                # Compare user time with package's times
+                if user_timedelta < package_info.time_left_hub:
+                    print(f"Package {package_id}: At Hub")
+                elif package_info.time_left_hub <= user_timedelta < package_info.delivery_time:
+                    print(f"Package {package_id}: On Route")
+                elif user_timedelta >= package_info.delivery_time:
+                    print(f"Package {package_id}: Delivered at {package_info.delivery_time}")
+                else:
+                    print(f"Package {package_id}: At Hub")  # Default case
+            else:
+                print(f"Package {package_id}: Not Found")
+
+    except Exception as e:
+        print("Error:", e)
+
+
+def main():
+    while True:
+        display_menu()
+        choice = input("Please make a selection (1-4): ")
+
+        if choice == "1":
+            print_all_package_status_and_mileage()
+        elif choice == "2":
+            get_single_package_status()
+        elif choice == "3":
+            get_all_package_status()
+        elif choice == "4":
+            print("Exiting the program. Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please select a valid option.")
+
+
+# Run the program
+if __name__ == "__main__":
+    main()
 
 # Resources:
-# Overall structure idea for classes / functions: Getting Started with the C950 code - https://wgu.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=58db0088-cbce-469e-817c-ac9601692338
+# Overall structure idea for classes / functions: Getting Started with the C950 code
+# https://wgu.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=58db0088-cbce-469e-817c-ac9601692338
 # For hashmap: https://www.youtube.com/watch?v=9HFbhPscPU0 as noted in email / helpful links
 # 2d array/matrix for Distance data https://www.geeksforgeeks.org/python-using-2d-arrays-lists-the-right-way/
-# Nearest Neighbor Greedy Algorithm / Implementation https://srm--c.vf.force.com/apex/coursearticle?Id=kA03x000001DbBGCA0#
+# Nearest Neighbor Greedy Algorithm / Implementation
+# https://srm--c.vf.force.com/apex/coursearticle?Id=kA03x000001DbBGCA0#
 # Assistance for Prof. Khatri and Prof. Ferdinand
