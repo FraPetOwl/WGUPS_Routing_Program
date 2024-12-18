@@ -32,7 +32,7 @@ def package_data_to_hashmap():
 
             # Creates a package info object
             package_info = package.PackageInfo(package_id, address, city, state, zip_code, delivery_deadline, weight,
-                                               special_notes)
+                                               special_notes, assigned_truck=None)
             # Inserts into the hash map
             h.insert(package_id, package_info)
     print("Package data loaded\n")
@@ -165,9 +165,10 @@ def truck_deliver_packages(delivery_truck):
                 time_to_deliver = datetime.timedelta(hours=delivery_distance / delivery_truck.speed)
                 delivery_truck.time += time_to_deliver
 
-                # Assign package to time it left the hub, it's delivery time, and update delivery status
+                # Assign package info to the following: time left hub, delivery time, truck assigned and delivery status
                 package_info.time_left_hub = delivery_truck.time_left_hub
                 package_info.delivery_time = delivery_truck.time
+                package_info.assigned_truck = delivery_truck.truck_id
                 package_info.delivery_status = f"Delivered at {package_info.delivery_time}"
 
                 h.insert(package_id, package_info)  # Update in hash table
@@ -221,6 +222,7 @@ truck1.time_left_hub = truck1.time
 
 truck_deliver_packages(truck1)
 return_trucks_to_hub(truck1)
+print("--------------^ Real-time data and updates above ^ --------------\n")
 
 print("     Welcome to WGUPS Routing Program!\n")
 
@@ -260,14 +262,15 @@ def get_single_package_status():
         if package_info:
             # Compare the delivery time with the user input time
             if user_timedelta < package_info.time_left_hub:
-                print(f"Package {package_id} status at {time_input_str}: At Hub")
+                print(f"Package {package_id} status at {time_input_str}: At Hub assigned to Truck {package_info.assigned_truck}")
                 return
             elif package_info.time_left_hub <= user_timedelta < package_info.delivery_time:
-                print(f"Package {package_id} status at {time_input_str}: On Route")
+                print(f"Package {package_id} status at {time_input_str}: On Route on on Truck {package_info.assigned_truck}")
                 return
             elif user_timedelta >= package_info.delivery_time:
                 print(
-                    f"Package {package_id} status at {time_input_str}: Delivered at {package_info.delivery_time}")
+                    f"Package {package_id} status at {time_input_str}: Delivered at {package_info.delivery_time} on "
+                    f"Truck {package_info.assigned_truck}")
                 return
             # If no status is determined, assume "At Hub"
             print(f"Package {package_id} status at {time_input_str}: At Hub")
@@ -298,11 +301,11 @@ def get_all_package_status():
             if package_info:
                 # Compare user time with package's times
                 if user_timedelta < package_info.time_left_hub:
-                    print(f"Package {package_id}: At Hub")
+                    print(f"Package {package_id}: At Hub assigned to Truck {package_info.assigned_truck}")
                 elif package_info.time_left_hub <= user_timedelta < package_info.delivery_time:
-                    print(f"Package {package_id}: On Route")
+                    print(f"Package {package_id}: On Route on Truck {package_info.assigned_truck}")
                 elif user_timedelta >= package_info.delivery_time:
-                    print(f"Package {package_id}: Delivered at {package_info.delivery_time}")
+                    print(f"Package {package_id}: Delivered at {package_info.delivery_time} on Truck {package_info.assigned_truck}")
                 else:
                     print(f"Package {package_id}: At Hub")  # Default case
             else:

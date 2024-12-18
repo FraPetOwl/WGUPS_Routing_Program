@@ -7,7 +7,6 @@ class Truck:
         self.time_left_hub = time_left_hub
         self.mileage = mileage
         self.packages = packages
-        self.run_times = []  # List of lists to track each run's time_left_hub and completion time
 
     def __str__(self):
         return (f"Truck ID: {self.truck_id}, Speed: {self.speed} mph, Current Location: {self.current_location}, "
